@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Animal Reels — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f0e;
+    --surface: #141714;
+    --surface2: #1b1e1b;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8ede8;
+    --muted: #7a8a7a;
+    --accent: #7cfc6e;
+    --accent-dim: rgba(124,252,110,0.12);
+    --accent-dim2: rgba(124,252,110,0.06);
+    --red: #ff5f5f;
+    --red-dim: rgba(255,95,95,0.12);
+    --amber: #f5b843;
+    --amber-dim: rgba(245,184,67,0.12);
+    --blue: #6eb8fc;
+    --blue-dim: rgba(110,184,252,0.1);
+    --radius: 10px;
+    --font: 'Sora', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── Layout ── */
+  .shell {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 28px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .logo {
+    padding: 0 20px 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+
+  .logo-mark {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--accent-dim);
+    border: 1px solid rgba(124,252,110,0.25);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .logo-text {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-top: 2px;
+    letter-spacing: 0.06em;
+  }
+
+  .nav { flex: 1; }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .nav-item:hover { color: var(--text); background: var(--accent-dim2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-dim2); }
+  .nav-icon { font-size: 16px; }
+
+  .sidebar-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .run-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--accent);
+    color: #0d0f0e;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: opacity 0.15s;
+  }
+
+  .run-btn:hover { opacity: 0.88; }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Main ── */
+  .main {
+    padding: 32px 36px;
+    overflow-y: auto;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── Page header ── */
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+
+  .page-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .page-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 3px;
+    font-family: var(--mono);
+  }
+
+  /* ── Stat cards ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .stat-value.green { color: var(--accent); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.amber { color: var(--amber); }
+
+  /* ── Table ── */
+  .section-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    font-family: var(--mono);
+    margin-bottom: 12px;
+  }
+
+  .video-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .video-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: 40px 1fr auto auto;
+    align-items: center;
+    gap: 14px;
+    transition: border-color 0.15s;
+  }
+
+  .video-card:hover { border-color: var(--border2); }
+
+  .video-emoji { font-size: 22px; }
+
+  .video-info {}
+  .video-title { font-size: 14px; font-weight: 500; color: var(--text); }
+  .video-meta { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+
+  .badge {
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  .badge-posted { background: var(--accent-dim); color: var(--accent); }
+  .badge-ready { background: var(--blue-dim); color: var(--blue); }
+  .badge-pending { background: var(--amber-dim); color: var(--amber); }
+  .badge-failed { background: var(--red-dim); color: var(--red); }
+  .badge-generating { background: var(--amber-dim); color: var(--amber); }
+
+  .video-actions { display: flex; gap: 8px; }
+
+  .action-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: var(--font);
+    cursor: pointer;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+
+  .action-btn:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); }
+
+  .action-btn.approve {
+    border-color: rgba(124,252,110,0.3);
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .action-btn.approve:hover { background: rgba(124,252,110,0.2); }
+
+  /* ── Logs ── */
+  .log-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .log-entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .log-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .log-dot.done { background: var(--accent); }
+  .log-dot.failed { background: var(--red); }
+  .log-dot.started { background: var(--amber); }
+
+  .log-time { color: var(--muted); white-space: nowrap; }
+  .log-step { color: var(--blue); min-width: 80px; }
+  .log-msg { color: var(--text); }
+
+  /* ── Settings ── */
+  .settings-grid { display: flex; flex-direction: column; gap: 16px; }
+
+  .setting-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .setting-label { font-size: 14px; font-weight: 500; }
+  .setting-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .toggle {
+    width: 42px;
+    height: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 999px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s;
+  }
+
+  .toggle.on::after { transform: translateX(18px); }
+
+  select, input[type="number"], input[type="time"] {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 6px 10px;
+    outline: none;
+  }
+
+  select:focus, input:focus { border-color: var(--accent); }
+
+  /* ── Empty state ── */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; }
+  .empty-sub { font-size: 12px; font-family: var(--mono); margin-top: 6px; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    font-size: 13px;
+    color: var(--text);
+    font-family: var(--mono);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.2s;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">
+        <div class="logo-icon">🐾</div>
+        <div>
+          <div class="logo-text">Animal Reels</div>
+          <div class="logo-sub">PRIVATE DASHBOARD</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-item active" onclick="showPage('overview')">
+        <span class="nav-icon">◈</span> Overview
+      </div>
+      <div class="nav-item" onclick="showPage('videos')">
+        <span class="nav-icon">▶</span> Videos
+      </div>
+      <div class="nav-item" onclick="showPage('logs')">
+        <span class="nav-icon">≡</span> Pipeline logs
+      </div>
+      <div class="nav-item" onclick="showPage('settings')">
+        <span class="nav-icon">⚙</span> Settings
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="run-btn" id="runBtn" onclick="runPipeline()">
+        ▶ Run pipeline now
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- Overview -->
+    <div class="page active" id="page-overview">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Overview</div>
+          <div class="page-sub" id="todayDate">Loading...</div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">Generated today</div>
+          <div class="stat-value" id="stat-today">2</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Posted</div>
+          <div class="stat-value green" id="stat-posted">1</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Awaiting approval</div>
+          <div class="stat-value amber" id="stat-pending">1</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Failed</div>
+          <div class="stat-value red" id="stat-failed">0</div>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-bottom:12px;">Recent videos</div>
+      <div class="video-list" id="overview-list"></div>
+    </div>
+
+    <!-- Videos -->
+    <div class="page" id="page-videos">
+      <div class="page-header">
+        <div>
+          <div class="page-title">All videos</div>
+          <div class="page-sub">Every video generated by the pipeline</div>
+        </div>
+      </div>
+      <div class="video-list" id="all-videos-list"></div>
+    </div>
+
+    <!-- Logs -->
+    <div class="page" id="page-logs">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Pipeline logs</div>
+          <div class="page-sub">Step-by-step trace of every run</div>
+        </div>
+      </div>
+      <div class="log-list" id="log-list"></div>
+    </div>
+
+    <!-- Settings -->
+    <div class="page" id="page-settings">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Settings</div>
+          <div class="page-sub">Configure your channels and pipeline</div>
+        </div>
+      </div>
+
+      <div class="settings-grid">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">🐾 Animals channel</div>
+            <div class="setting-sub">Generate daily animal fact videos</div>
+          </div>
+          <div class="toggle on" id="toggle-animals" onclick="toggleSetting('animals')"></div>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">🧒 Kids channel</div>
+            <div class="setting-sub">Bedtime stories and fun facts for kids</div>
+          </div>
+          <div class="toggle" id="toggle-kids" onclick="toggleSetting('kids')"></div>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">✨ Satisfying channel</div>
+            <div class="setting-sub">Calming loops and ASMR visuals</div>
+          </div>
+          <div class="toggle" id="toggle-satisfying" onclick="toggleSetting('satisfying')"></div>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Videos per day</div>
+            <div class="setting-sub">How many videos to generate each run</div>
+          </div>
+          <input type="number" min="1" max="5" value="2" style="width:70px; text-align:center;">
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Pipeline mode</div>
+            <div class="setting-sub">Auto posts immediately or waits for your approval</div>
+          </div>
+          <select>
+            <option value="approve" selected>Approve first</option>
+            <option value="auto">Fully automatic</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Daily run time (UTC)</div>
+            <div class="setting-sub">When the pipeline fires each day</div>
+          </div>
+          <input type="time" value="09:00">
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SAMPLE_VIDEOS = [
+  {
+    id: '1', emoji: '🦊', title: '5 Facts About Red Foxes',
+    channel: 'animals', status: 'posted',
+    meta: 'Animals · YouTube Shorts + TikTok · 2 min ago'
+  },
+  {
+    id: '2', emoji: '🐙', title: 'The Incredible Octopus Brain',
+    channel: 'animals', status: 'ready',
+    meta: 'Animals · YouTube Shorts · just now'
+  },
+  {
+    id: '3', emoji: '🦋', title: 'How Butterflies See Color',
+    channel: 'animals', status: 'generating',
+    meta: 'Animals · TikTok · generating...'
+  }
+];
+
+const SAMPLE_LOGS = [
+  { time: '09:02:14', step: 'script', status: 'done', msg: 'Generated script: "5 Facts About Red Foxes"' },
+  { time: '09:02:18', step: 'images', status: 'done', msg: '5 scenes generated via Replicate (SDXL)' },
+  { time: '09:02:51', step: 'voice', status: 'done', msg: 'Voiceover generated — 47s runtime' },
+  { time: '09:02:54', step: 'assembly', status: 'done', msg: 'Video assembled via FFmpeg → 720p MP4' },
+  { time: '09:02:58', step: 'upload', status: 'done', msg: 'Uploaded to Backblaze R2' },
+  { time: '09:03:02', step: 'posting', status: 'done', msg: 'Posted to YouTube Shorts ✓' },
+  { time: '09:03:05', step: 'script', status: 'started', msg: 'Generating script: "The Incredible Octopus Brain"' },
+  { time: '09:03:09', step: 'images', status: 'started', msg: 'Requesting 5 scenes from Replicate...' },
+];
+
+function renderBadge(status) {
+  const map = {
+    posted: ['badge-posted', '✓ posted'],
+    ready: ['badge-ready', '● ready'],
+    pending: ['badge-pending', '◌ pending'],
+    generating: ['badge-generating', '◌ generating'],
+    failed: ['badge-failed', '✗ failed'],
+  };
+  const [cls, label] = map[status] || ['badge-pending', status];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function renderActions(v) {
+  if (v.status === 'ready') {
+    return `<div class="video-actions">
+      <button class="action-btn" onclick="preview('${v.id}')">preview</button>
+      <button class="action-btn approve" onclick="approve('${v.id}')">approve →</button>
+    </div>`;
+  }
+  if (v.status === 'failed') {
+    return `<div class="video-actions">
+      <button class="action-btn" onclick="retry('${v.id}')">retry</button>
+    </div>`;
+  }
+  return '';
+}
+
+function renderVideoCard(v) {
+  return `<div class="video-card" id="card-${v.id}">
+    <div class="video-emoji">${v.emoji}</div>
+    <div class="video-info">
+      <div class="video-title">${v.title}</div>
+      <div class="video-meta">${v.meta}</div>
+    </div>
+    ${renderBadge(v.status)}
+    ${renderActions(v)}
+  </div>`;
+}
+
+function renderLog(l) {
+  return `<div class="log-entry">
+    <div class="log-dot ${l.status}"></div>
+    <span class="log-time">${l.time}</span>
+    <span class="log-step">${l.step}</span>
+    <span class="log-msg">${l.msg}</span>
+  </div>`;
+}
+
+function loadOverview() {
+  document.getElementById('overview-list').innerHTML = SAMPLE_VIDEOS.map(renderVideoCard).join('');
+}
+
+function loadAllVideos() {
+  document.getElementById('all-videos-list').innerHTML = SAMPLE_VIDEOS.map(renderVideoCard).join('');
+}
+
+function loadLogs() {
+  document.getElementById('log-list').innerHTML = SAMPLE_LOGS.map(renderLog).join('');
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'videos') loadAllVideos();
+  if (name === 'logs') loadLogs();
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function approve(id) {
+  const v = SAMPLE_VIDEOS.find(x => x.id === id);
+  if (v) { v.status = 'posting'; setTimeout(() => { v.status = 'posted'; loadOverview(); }, 1500); }
+  loadOverview();
+  toast('Video approved — posting to YouTube & TikTok...');
+}
+
+function preview(id) { toast('Preview: video URL will open here once pipeline is live.'); }
+function retry(id) { toast('Retrying pipeline for this video...'); }
+
+function toggleSetting(key) {
+  const el = document.getElementById('toggle-' + key);
+  el.classList.toggle('on');
+  toast(`${key} channel ${el.classList.contains('on') ? 'enabled' : 'disabled'}`);
+}
+
+function runPipeline() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = '◌ Running...';
+  toast('Pipeline triggered — generating new videos...');
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.innerHTML = '▶ Run pipeline now';
+    toast('Pipeline complete — check Videos tab.');
+  }, 4000);
+}
+
+// Init
+const now = new Date();
+document.getElementById('todayDate').textContent =
+  now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) +
+  ' · pipeline running daily at 09:00 UTC';
+
+loadOverview();
+</script>
+</body>
+</html>

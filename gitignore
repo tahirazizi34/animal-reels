@@ -1,0 +1,22 @@
+# Secrets — never commit these
+.env
+pipeline/.env
+pipeline/client_secrets.json
+pipeline/youtube_token.json
+
+# Generated output — too large for git
+pipeline/output/
+pipeline/test_images/
+pipeline/test_audio/
+pipeline/test_output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
