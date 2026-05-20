@@ -1,0 +1,5 @@
+anthropic
+httpx
+requests
+python-dotenv
+boto3
