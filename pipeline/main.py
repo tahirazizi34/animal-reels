@@ -8,6 +8,7 @@ from image_gen import generate_images, download_images
 from voice_gen import generate_voiceover
 from video_assembly import assemble_video
 from youtube_upload import upload_to_youtube
+from music_selector import download_music
 
 
 def run_pipeline(script_only=False, images_only=False, voice_only=False):
@@ -61,7 +62,7 @@ def run_single_video(script_only=False, images_only=False, voice_only=False):
         # ── Step 3: Images ─────────────────────────────
         print("Step 3: Generating images...")
         image_urls = generate_images(video_id, script["scene_descriptions"], script["animal"])
-        image_dir = os.path.join("output", video_id, "images")
+        image_dir  = os.path.join("output", video_id, "images")
         local_images = download_images(image_urls, image_dir)
         print(f"✓ {len(local_images)} images saved\n")
         if images_only:
@@ -75,6 +76,12 @@ def run_single_video(script_only=False, images_only=False, voice_only=False):
         if voice_only:
             print(f"Open '{audio_path}' to listen."); return
 
+        # ── Step 4b: Background music ──────────────────
+        print("Step 4b: Selecting background music...")
+        music_path = os.path.join("output", video_id, "music.mp3")
+        download_music(script["animal"], music_path)
+        print(f"✓ Music ready\n")
+
         # ── Step 5: Assemble video ─────────────────────
         print("Step 5: Assembling video...")
         video_path = os.path.join("output", video_id, "final.mp4")
@@ -84,12 +91,12 @@ def run_single_video(script_only=False, images_only=False, voice_only=False):
             audio_path=audio_path,
             output_path=video_path,
             title=script["title"],
+            music_path=music_path,
         )
         print(f"✓ Video ready\n")
 
         # ── Step 6: Post to YouTube ────────────────────
-        mode = PIPELINE_MODE  # reads directly from .env
-
+        mode = PIPELINE_MODE
         if mode == "auto":
             print("Step 6: Posting to YouTube...")
             upload_to_youtube(
@@ -100,8 +107,7 @@ def run_single_video(script_only=False, images_only=False, voice_only=False):
             )
             print(f"✓ Posted to YouTube!\n")
         else:
-            print("Step 6: Video is ready — awaiting your approval in dashboard.")
-            print(f"  Run: python youtube_upload.py --upload to post manually.")
+            print("Step 6: Ready — awaiting approval.")
             update_video(video_id, status="ready")
 
     except Exception as e:
