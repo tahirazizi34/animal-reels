@@ -11,7 +11,7 @@ import datetime
 import traceback
 
 # Run time in UTC — change this to whatever time you want
-RUN_TIME = os.getenv("RUN_TIME_UTC", "05:03")
+RUN_TIME = os.getenv("RUN_TIME_UTC", "05:13")
 
 
 def get_next_run(run_time_str: str) -> datetime.datetime:
