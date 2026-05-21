@@ -8,40 +8,65 @@ from urllib.parse import urlparse, parse_qs, urlencode
 from database import StepTimer, log_step, update_video
 
 # ── OAuth config ───────────────────────────────────────
-SCOPES          = "https://www.googleapis.com/auth/youtube.upload"
-AUTH_URL        = "https://accounts.google.com/o/oauth2/auth"
-TOKEN_URL       = "https://oauth2.googleapis.com/token"
-UPLOAD_URL      = "https://www.googleapis.com/upload/youtube/v3/videos"
-REDIRECT_URI    = "http://localhost:8080"
-TOKEN_FILE      = "youtube_token.json"
-SECRETS_FILE    = "client_secrets.json"
+SCOPES       = "https://www.googleapis.com/auth/youtube.upload"
+AUTH_URL     = "https://accounts.google.com/o/oauth2/auth"
+TOKEN_URL    = "https://oauth2.googleapis.com/token"
+UPLOAD_URL   = "https://www.googleapis.com/upload/youtube/v3/videos"
+REDIRECT_URI = "http://localhost:8080"
+TOKEN_FILE   = "youtube_token.json"
+SECRETS_FILE = "client_secrets.json"
 
-# ── Video metadata defaults ────────────────────────────
-DEFAULT_CATEGORY = "15"          # Pets & Animals
-DEFAULT_PRIVACY  = "public"      # public / private / unlisted
+DEFAULT_CATEGORY = "15"
+DEFAULT_PRIVACY  = "public"
 DEFAULT_TAGS     = [
     "animals", "animal facts", "did you know",
     "wildlife", "nature", "shorts", "animalreels"
 ]
 
 
-# ── OAuth flow ─────────────────────────────────────────
-
 def _load_secrets() -> dict:
-    if not os.path.exists(SECRETS_FILE):
-        raise FileNotFoundError(
-            f"'{SECRETS_FILE}' not found in pipeline/ folder.\n"
-            "Download it from Google Cloud Console → APIs & Services → Credentials."
-        )
-    with open(SECRETS_FILE) as f:
-        data = json.load(f)
-    return data.get("installed") or data.get("web")
+    # Try env var first (Railway)
+    env_val = os.environ.get("GOOGLE_CLIENT_SECRETS", "").strip()
+    print(f"  [DEBUG] GOOGLE_CLIENT_SECRETS env var present: {bool(env_val)}")
+    print(f"  [DEBUG] GOOGLE_CLIENT_SECRETS length: {len(env_val)}")
+
+    if env_val:
+        try:
+            data = json.loads(env_val)
+            result = data.get("installed") or data.get("web") or data
+            print(f"  [DEBUG] Parsed secrets keys: {list(result.keys())}")
+            return result
+        except json.JSONDecodeError as e:
+            print(f"  [DEBUG] JSON parse error: {e}")
+            print(f"  [DEBUG] First 100 chars: {env_val[:100]}")
+
+    # Fall back to local file
+    if os.path.exists(SECRETS_FILE):
+        print(f"  [DEBUG] Loading from file: {SECRETS_FILE}")
+        with open(SECRETS_FILE) as f:
+            data = json.load(f)
+        return data.get("installed") or data.get("web")
+
+    raise FileNotFoundError(
+        f"No YouTube credentials found.\n"
+        f"Either set GOOGLE_CLIENT_SECRETS env var or place {SECRETS_FILE} in pipeline/"
+    )
 
 
 def _load_token() -> dict | None:
+    env_val = os.environ.get("YOUTUBE_TOKEN", "").strip()
+    print(f"  [DEBUG] YOUTUBE_TOKEN env var present: {bool(env_val)}")
+
+    if env_val:
+        try:
+            return json.loads(env_val)
+        except json.JSONDecodeError as e:
+            print(f"  [DEBUG] YOUTUBE_TOKEN parse error: {e}")
+
     if os.path.exists(TOKEN_FILE):
         with open(TOKEN_FILE) as f:
             return json.load(f)
+
     return None
 
 
@@ -52,7 +77,6 @@ def _save_token(token: dict):
 
 
 def _refresh_token(secrets: dict, token: dict) -> dict:
-    """Refresh an expired access token using the refresh token."""
     response = httpx.post(TOKEN_URL, data={
         "client_id":     secrets["client_id"],
         "client_secret": secrets["client_secret"],
@@ -61,13 +85,12 @@ def _refresh_token(secrets: dict, token: dict) -> dict:
     })
     response.raise_for_status()
     new_token = response.json()
-    token["access_token"]  = new_token["access_token"]
-    token["expires_at"]    = time.time() + new_token.get("expires_in", 3600)
+    token["access_token"] = new_token["access_token"]
+    token["expires_at"]   = time.time() + new_token.get("expires_in", 3600)
     _save_token(token)
     return token
 
 
-# Simple local server to catch the OAuth redirect
 class _OAuthHandler(BaseHTTPRequestHandler):
     code = None
     def do_GET(self):
@@ -75,15 +98,12 @@ class _OAuthHandler(BaseHTTPRequestHandler):
         _OAuthHandler.code = params.get("code", [None])[0]
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"<h2>Auth complete! You can close this tab and return to the terminal.</h2>")
-    def log_message(self, *args): pass  # Silence request logs
+        self.wfile.write(b"<h2>Auth complete! Return to the terminal.</h2>")
+    def log_message(self, *args): pass
 
 
 def _run_oauth_flow(secrets: dict) -> dict:
-    """Run the full OAuth flow and return a token dict."""
     print("\n  Opening browser for YouTube authorization...")
-    print("  If it doesn't open, copy the URL printed below.\n")
-
     params = {
         "client_id":     secrets["client_id"],
         "redirect_uri":  REDIRECT_URI,
@@ -96,7 +116,6 @@ def _run_oauth_flow(secrets: dict) -> dict:
     print(f"  Auth URL: {auth_url}\n")
     webbrowser.open(auth_url)
 
-    # Wait for redirect on localhost:8080
     server = HTTPServer(("localhost", 8080), _OAuthHandler)
     server.handle_request()
     code = _OAuthHandler.code
@@ -104,7 +123,6 @@ def _run_oauth_flow(secrets: dict) -> dict:
     if not code:
         raise RuntimeError("No authorization code received.")
 
-    # Exchange code for tokens
     response = httpx.post(TOKEN_URL, data={
         "client_id":     secrets["client_id"],
         "client_secret": secrets["client_secret"],
@@ -119,10 +137,6 @@ def _run_oauth_flow(secrets: dict) -> dict:
 
 
 def get_access_token() -> str:
-    """
-    Get a valid access token, running OAuth flow if needed.
-    Tokens are cached in youtube_token.json and auto-refreshed.
-    """
     secrets = _load_secrets()
     token   = _load_token()
 
@@ -137,20 +151,7 @@ def get_access_token() -> str:
     return token["access_token"]
 
 
-# ── Upload ─────────────────────────────────────────────
-
-def upload_to_youtube(
-    video_id:    str,
-    video_path:  str,
-    title:       str,
-    description: str = None,
-    tags:        list = None,
-    privacy:     str = DEFAULT_PRIVACY,
-) -> str:
-    """
-    Upload a video to YouTube.
-    Returns the YouTube video ID (e.g. 'dQw4w9WgXcQ').
-    """
+def upload_to_youtube(video_id, video_path, title, description=None, tags=None, privacy=DEFAULT_PRIVACY) -> str:
     with StepTimer(video_id, "posting", f"Uploading to YouTube: {title}"):
 
         access_token = get_access_token()
@@ -160,7 +161,7 @@ def upload_to_youtube(
 
         metadata = {
             "snippet": {
-                "title":       title[:100],   # YouTube max title length
+                "title":       title[:100],
                 "description": description,
                 "tags":        tags or DEFAULT_TAGS,
                 "categoryId":  DEFAULT_CATEGORY,
@@ -179,21 +180,12 @@ def upload_to_youtube(
         print(f"  ✓ Uploaded! YouTube ID: {youtube_id}")
         print(f"  ✓ URL: https://www.youtube.com/watch?v={youtube_id}")
 
-        update_video(
-            video_id,
-            youtube_id=youtube_id,
-            status="posted",
-            posted_at="now()",
-        )
+        update_video(video_id, youtube_id=youtube_id, status="posted", posted_at="now()")
 
     return youtube_id
 
 
-def _resumable_upload(access_token: str, metadata: dict, video_path: str, file_size: int) -> str:
-    """
-    Use YouTube's resumable upload protocol for reliable large file uploads.
-    """
-    # Step 1: Initialize upload session
+def _resumable_upload(access_token, metadata, video_path, file_size) -> str:
     init_response = httpx.post(
         f"{UPLOAD_URL}?uploadType=resumable&part=snippet,status",
         headers={
@@ -208,7 +200,6 @@ def _resumable_upload(access_token: str, metadata: dict, video_path: str, file_s
     init_response.raise_for_status()
     upload_url = init_response.headers["Location"]
 
-    # Step 2: Upload the file in one chunk
     with open(video_path, "rb") as f:
         video_data = f.read()
 
@@ -220,15 +211,13 @@ def _resumable_upload(access_token: str, metadata: dict, video_path: str, file_s
             "Content-Length": str(file_size),
         },
         content=video_data,
-        timeout=300,   # 5 min timeout for upload
+        timeout=300,
     )
     upload_response.raise_for_status()
-
-    result = upload_response.json()
-    return result["id"]
+    return upload_response.json()["id"]
 
 
-def _build_description(title: str, tags: list) -> str:
+def _build_description(title, tags):
     hashtags = " ".join(f"#{t.replace(' ', '')}" for t in tags[:5])
     return (
         f"{title}\n\n"
@@ -237,40 +226,28 @@ def _build_description(title: str, tags: list) -> str:
     )
 
 
-# ── Auth setup helper ──────────────────────────────────
-
 def setup_auth():
-    """Run this once to authorize your YouTube account."""
     print("Setting up YouTube authorization...\n")
-    token = get_access_token()
+    get_access_token()
     print("\n✓ YouTube authorization complete!")
-    print(f"  Token saved to: {TOKEN_FILE}")
-    print(f"  This token will auto-refresh — you won't need to do this again.\n")
-    return token
 
-
-# ── Test runner ────────────────────────────────────────
 
 if __name__ == "__main__":
     import sys
-
     if "--auth-only" in sys.argv:
         setup_auth()
         exit(0)
 
-    print("YouTube Uploader Test\n")
-    print("Options:")
-    print("  python youtube_upload.py --auth-only   ← authorize YouTube account")
+    print("YouTube Uploader\n")
+    print("  python youtube_upload.py --auth-only   ← authorize account")
     print("  python youtube_upload.py --upload      ← upload test video\n")
 
     if "--upload" not in sys.argv:
-        print("Run with --auth-only first to authorize your YouTube account.")
         exit(0)
 
     video_path = "test_output/axolotl_final.mp4"
     if not os.path.exists(video_path):
         print(f"✗ No video found at {video_path}")
-        print("  Run video_assembly.py first (Phase 5)")
         exit(1)
 
     TEST_VIDEO_ID = "00000000-0000-0000-0000-000000000001"
@@ -284,16 +261,10 @@ if __name__ == "__main__":
     database.log_step     = lambda *a, **kw: None
     database.update_video = lambda *a, **kw: None
 
-    print(f"Uploading {video_path} to YouTube...\n")
-
     yt_id = upload_to_youtube(
         video_id=TEST_VIDEO_ID,
         video_path=video_path,
-        title="This Animal Can Regrow Its Brain 🦎 #Shorts #AnimalFacts",
-        privacy="public",   # public for testing — change to public when ready
+        title="This Animal Can Regrow Its Brain #Shorts #AnimalFacts",
+        privacy="public",
     )
-
-    print(f"\n── Result ────────────────────────────────────────")
-    print(f"  YouTube ID : {yt_id}")
-    print(f"  URL        : https://www.youtube.com/watch?v={yt_id}")
-    print(f"\n✓ Check your YouTube Studio to see the uploaded video!")
+    print(f"\n✓ https://www.youtube.com/watch?v={yt_id}")
