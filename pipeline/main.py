@@ -118,6 +118,7 @@ def run_single_video(script_only=False, images_only=False, voice_only=False):
                 video_path=video_path,
                 title=script["title"],
                 privacy="public",
+                thumbnail_path=thumb_path,
             )
             print(f"✓ Posted to YouTube!\n")
         else:

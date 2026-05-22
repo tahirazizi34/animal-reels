@@ -151,7 +151,32 @@ def get_access_token() -> str:
     return token["access_token"]
 
 
-def upload_to_youtube(video_id, video_path, title, description=None, tags=None, privacy=DEFAULT_PRIVACY) -> str:
+def set_thumbnail(youtube_id: str, thumbnail_path: str, access_token: str):
+    """Upload a custom thumbnail to YouTube."""
+    if not thumbnail_path or not os.path.exists(thumbnail_path):
+        print("  ⚠ No thumbnail file found — skipping")
+        return
+
+    with open(thumbnail_path, "rb") as f:
+        thumb_data = f.read()
+
+    response = httpx.post(
+        f"https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId={youtube_id}&uploadType=media",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type":  "image/png",
+        },
+        content=thumb_data,
+        timeout=60,
+    )
+
+    if response.status_code == 200:
+        print(f"  ✓ Custom thumbnail set")
+    else:
+        print(f"  ⚠ Thumbnail upload failed: {response.status_code} — {response.text[:100]}")
+
+
+def upload_to_youtube(video_id, video_path, title, description=None, tags=None, privacy=DEFAULT_PRIVACY, thumbnail_path=None) -> str:
     with StepTimer(video_id, "posting", f"Uploading to YouTube: {title}"):
 
         access_token = get_access_token()
@@ -179,6 +204,10 @@ def upload_to_youtube(video_id, video_path, title, description=None, tags=None, 
 
         print(f"  ✓ Uploaded! YouTube ID: {youtube_id}")
         print(f"  ✓ URL: https://www.youtube.com/watch?v={youtube_id}")
+
+        # Set custom thumbnail
+        if thumbnail_path:
+            set_thumbnail(youtube_id, thumbnail_path, access_token)
 
         update_video(video_id, youtube_id=youtube_id, status="posted", posted_at="now()")
 
