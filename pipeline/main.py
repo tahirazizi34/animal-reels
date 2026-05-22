@@ -9,6 +9,7 @@ from voice_gen import generate_voiceover
 from video_assembly import assemble_video
 from youtube_upload import upload_to_youtube
 from music_selector import download_music
+from thumbnail_gen import generate_thumbnail
 
 
 def run_pipeline(script_only=False, images_only=False, voice_only=False):
@@ -94,6 +95,19 @@ def run_single_video(script_only=False, images_only=False, voice_only=False):
             music_path=music_path,
         )
         print(f"✓ Video ready\n")
+
+        # ── Step 5b: Generate thumbnail ────────────────
+        print("Step 5b: Generating thumbnail...")
+        thumb_path = os.path.join("output", video_id, "thumbnail.png")
+        generate_thumbnail(
+            video_id=video_id,
+            title=script["title"],
+            animal=script["animal"],
+            hook=script["hook"],
+            image_path=local_images[0],
+            output_path=thumb_path,
+        )
+        print(f"✓ Thumbnail ready\n")
 
         # ── Step 6: Post to YouTube ────────────────────
         mode = PIPELINE_MODE
