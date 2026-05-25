@@ -34,6 +34,19 @@ NSFW_FALLBACK_SUFFIX = (
 
 
 def _start_prediction(prompt: str) -> str:
+    for attempt in range(3):
+        try:
+            return _try_start_prediction(prompt)
+        except (httpx.ConnectError, httpx.TimeoutException) as e:
+            if attempt < 2:
+                print(f"  ⚠ Connection error ({e.__class__.__name__}) — retrying in 5s...")
+                time.sleep(5)
+            else:
+                raise
+    raise RuntimeError("Failed after 3 attempts")
+
+
+def _try_start_prediction(prompt: str) -> str:
     response = httpx.post(
         REPLICATE_API_URL,
         headers=HEADERS,
@@ -89,8 +102,14 @@ def _poll_prediction(prediction_id: str, timeout: int = 300) -> str:
         if time.time() - start > timeout:
             raise TimeoutError(f"Prediction timed out after {timeout}s")
 
-        response = httpx.get(url, headers=HEADERS, timeout=30)
-        response.raise_for_status()
+        try:
+            response = httpx.get(url, headers=HEADERS, timeout=30)
+            response.raise_for_status()
+        except (httpx.ConnectError, httpx.TimeoutException) as e:
+            print(f"  ⚠ Network hiccup ({e.__class__.__name__}) — retrying in 5s...")
+            time.sleep(5)
+            continue
+
         data   = response.json()
         status = data["status"]
 
