@@ -51,7 +51,7 @@ def generate_thumbnail(
         _generate_with_ffmpeg(
             image_path=image_path,
             output_path=output_path,
-            animal=animal,
+            animal=_sanitize_text(animal),
             hook=_shorten_hook(hook),
             colors=colors,
         )
@@ -64,12 +64,21 @@ def generate_thumbnail(
     return output_path
 
 
-def _shorten_hook(hook: str, max_len: int = 40) -> str:
+def _sanitize_text(text: str) -> str:
+    """Remove ALL characters that could break FFmpeg drawtext filter."""
+    import re
+    # Keep only letters, numbers and spaces - safest possible
+    text = re.sub(r"[^a-zA-Z0-9 ]", "", text)
+    text = re.sub(r" +", " ", text)
+    return text.strip()
+
+
+def _shorten_hook(hook: str, max_len: int = 38) -> str:
     """Shorten hook text to fit on thumbnail."""
+    hook = _sanitize_text(hook)
     if len(hook) <= max_len:
         return hook
-    # Cut at word boundary
-    shortened = hook[:max_len].rsplit(' ', 1)[0]
+    shortened = hook[:max_len].rsplit(" ", 1)[0]
     return shortened + "..."
 
 
@@ -219,7 +228,7 @@ if __name__ == "__main__":
         path = generate_thumbnail(
             video_id=TEST_VIDEO_ID,
             title=f"5 Facts About {animal}",
-            animal=animal,
+            animal=_sanitize_text(animal),
             hook=hook,
             image_path=images[0],
             output_path=out,
