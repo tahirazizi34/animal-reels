@@ -34,15 +34,23 @@ HEADERS = {
 
 def _start_prediction(prompt: str) -> str:
     """Submit image generation to FLUX 1.1 Pro."""
-    for attempt in range(3):
+    for attempt in range(5):
         try:
             return _try_start_prediction(prompt)
-        except (httpx.ConnectError, httpx.TimeoutException) as e:
-            if attempt < 2:
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:
+                wait = 10 * (attempt + 1)
+                print(f"  ⚠ Rate limited — waiting {wait}s before retry {attempt+1}/5...")
+                time.sleep(wait)
+            else:
+                raise
+        except (httpx.ConnectError, httpx.TimeoutException):
+            if attempt < 4:
                 print(f"  ⚠ Connection error — retrying in 5s...")
                 time.sleep(5)
             else:
                 raise
+    raise RuntimeError("Failed after 5 attempts due to rate limiting")
 
 
 def _try_start_prediction(prompt: str) -> str:
@@ -54,12 +62,11 @@ def _try_start_prediction(prompt: str) -> str:
         headers=HEADERS,
         json={
             "input": {
-                "prompt":          full_prompt,
-                "width":           1080,
-                "height":          1920,
-                "output_format":   "png",
-                "output_quality":  100,
-                "safety_tolerance": 2,
+                "prompt":            full_prompt,
+                "aspect_ratio":      "9:16",
+                "output_format":     "png",
+                "output_quality":    100,
+                "safety_tolerance":  2,
                 "prompt_upsampling": True,
             }
         },
@@ -82,8 +89,7 @@ def _start_prediction_safe(animal: str) -> str:
         json={
             "input": {
                 "prompt":           safe_prompt,
-                "width":            1080,
-                "height":           1920,
+                "aspect_ratio":     "9:16",
                 "output_format":    "png",
                 "output_quality":   100,
                 "safety_tolerance": 2,
@@ -157,7 +163,7 @@ def generate_images(video_id: str, scene_descriptions: list, animal: str) -> lis
             image_urls.append(url)
             print(f"  ✓ Image {i + 1} ready")
             if i < len(scene_descriptions) - 1:
-                time.sleep(1)
+                time.sleep(5)  # avoid rate limits
 
         print(f"  ✓ All {len(scene_descriptions)} images generated")
 
