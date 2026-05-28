@@ -5,13 +5,19 @@ from config import REPLICATE_API_TOKEN
 from database import StepTimer, log_step
 
 REPLICATE_API_URL = "https://api.replicate.com/v1/predictions"
-MODEL_VERSION     = "7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc"
+
+# ── FLUX 1.1 Pro — much better quality than SDXL ──────
+# ~$0.04/image vs ~$0.05/image, 6x faster, dramatically better quality
+MODEL_VERSION = "black-forest-labs/flux-1.1-pro"
+USE_OFFICIAL_MODEL = True  # Uses model name directly instead of version hash
 
 STYLE_SUFFIX = (
-    "professional wildlife photography style, "
-    "soft natural lighting, shallow depth of field, "
-    "ultra detailed, 4k, beautiful, family friendly, "
-    "no text, no watermarks"
+    "professional wildlife photography, "
+    "National Geographic quality, "
+    "sharp focus, vivid colors, "
+    "natural lighting, ultra detailed, "
+    "8k resolution, photorealistic, "
+    "family friendly, no text, no watermarks"
 )
 
 NEGATIVE_PROMPT = (
@@ -25,42 +31,36 @@ HEADERS = {
     "Content-Type":  "application/json",
 }
 
-# Fallback prompts if NSFW is triggered — safe, generic animal scenes
-NSFW_FALLBACK_SUFFIX = (
-    "cute and friendly, bright natural daylight, "
-    "children's nature documentary style, wholesome, "
-    "ultra detailed, 4k, no text, no watermarks"
-)
-
 
 def _start_prediction(prompt: str) -> str:
+    """Submit image generation to FLUX 1.1 Pro."""
     for attempt in range(3):
         try:
             return _try_start_prediction(prompt)
         except (httpx.ConnectError, httpx.TimeoutException) as e:
             if attempt < 2:
-                print(f"  ⚠ Connection error ({e.__class__.__name__}) — retrying in 5s...")
+                print(f"  ⚠ Connection error — retrying in 5s...")
                 time.sleep(5)
             else:
                 raise
-    raise RuntimeError("Failed after 3 attempts")
 
 
 def _try_start_prediction(prompt: str) -> str:
+    full_prompt = f"{prompt}, {STYLE_SUFFIX}"
+
+    # FLUX 1.1 Pro uses a different API endpoint format
     response = httpx.post(
-        REPLICATE_API_URL,
+        "https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions",
         headers=HEADERS,
         json={
-            "version": MODEL_VERSION,
             "input": {
-                "prompt":               f"{prompt}, {STYLE_SUFFIX}",
-                "negative_prompt":      NEGATIVE_PROMPT,
-                "width":                1080,
-                "height":               1920,
-                "num_outputs":          1,
-                "scheduler":            "K_EULER",
-                "num_inference_steps":  30,
-                "guidance_scale":       7.5,
+                "prompt":          full_prompt,
+                "width":           1080,
+                "height":          1920,
+                "output_format":   "png",
+                "output_quality":  100,
+                "safety_tolerance": 2,
+                "prompt_upsampling": True,
             }
         },
         timeout=30,
@@ -69,23 +69,24 @@ def _try_start_prediction(prompt: str) -> str:
     return response.json()["id"]
 
 
-def _start_prediction_safe(prompt: str, animal: str) -> str:
-    """Fallback prompt — simpler and more conservative."""
-    safe_prompt = f"{animal} in natural habitat, bright daylight, {NSFW_FALLBACK_SUFFIX}"
+def _start_prediction_safe(animal: str) -> str:
+    """Fallback safe prompt if content is flagged."""
+    safe_prompt = (
+        f"cute {animal} in natural habitat, bright daylight, "
+        f"children's nature documentary style, wholesome, "
+        f"ultra detailed, photorealistic, no text"
+    )
     response = httpx.post(
-        REPLICATE_API_URL,
+        "https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions",
         headers=HEADERS,
         json={
-            "version": MODEL_VERSION,
             "input": {
-                "prompt":               safe_prompt,
-                "negative_prompt":      NEGATIVE_PROMPT,
-                "width":                1080,
-                "height":               1920,
-                "num_outputs":          1,
-                "scheduler":            "K_EULER",
-                "num_inference_steps":  30,
-                "guidance_scale":       7.5,
+                "prompt":           safe_prompt,
+                "width":            1080,
+                "height":           1920,
+                "output_format":    "png",
+                "output_quality":   100,
+                "safety_tolerance": 2,
             }
         },
         timeout=30,
@@ -106,7 +107,7 @@ def _poll_prediction(prediction_id: str, timeout: int = 300) -> str:
             response = httpx.get(url, headers=HEADERS, timeout=30)
             response.raise_for_status()
         except (httpx.ConnectError, httpx.TimeoutException) as e:
-            print(f"  ⚠ Network hiccup ({e.__class__.__name__}) — retrying in 5s...")
+            print(f"  ⚠ Network hiccup — retrying in 5s...")
             time.sleep(5)
             continue
 
@@ -114,9 +115,11 @@ def _poll_prediction(prediction_id: str, timeout: int = 300) -> str:
         status = data["status"]
 
         if status == "succeeded":
-            output = data.get("output", [])
-            if output:
+            output = data.get("output")
+            if isinstance(output, list) and output:
                 return output[0]
+            elif isinstance(output, str):
+                return output
             raise ValueError("Prediction succeeded but no output URL")
 
         elif status == "failed":
@@ -131,16 +134,15 @@ def _poll_prediction(prediction_id: str, timeout: int = 300) -> str:
 
 
 def _generate_single_image(scene: str, animal: str, scene_index: int, video_id: str) -> str:
-    """Generate one image with automatic retry on NSFW false positives."""
+    """Generate one image with automatic retry on content flags."""
     try:
         pred_id = _start_prediction(scene)
         return _poll_prediction(pred_id)
-
     except RuntimeError as e:
-        if "NSFW" in str(e):
-            print(f"  ⚠ NSFW false positive on scene {scene_index + 1} — retrying with safe prompt...")
+        if "NSFW" in str(e) or "safety" in str(e).lower():
+            print(f"  ⚠ Content flagged on scene {scene_index + 1} — retrying with safe prompt...")
             time.sleep(2)
-            pred_id = _start_prediction_safe(scene, animal)
+            pred_id = _start_prediction_safe(animal)
             return _poll_prediction(pred_id)
         raise
 
@@ -148,9 +150,9 @@ def _generate_single_image(scene: str, animal: str, scene_index: int, video_id: 
 def generate_images(video_id: str, scene_descriptions: list, animal: str) -> list:
     image_urls = []
 
-    with StepTimer(video_id, "images", f"Generating {len(scene_descriptions)} scene images"):
+    with StepTimer(video_id, "images", f"Generating {len(scene_descriptions)} images with FLUX 1.1 Pro"):
         for i, scene in enumerate(scene_descriptions):
-            print(f"  Submitting image {i + 1}/{len(scene_descriptions)}: {scene[:60]}...")
+            print(f"  Generating image {i + 1}/{len(scene_descriptions)}: {scene[:60]}...")
             url = _generate_single_image(scene, animal, i, video_id)
             image_urls.append(url)
             print(f"  ✓ Image {i + 1} ready")
@@ -180,8 +182,9 @@ def download_images(image_urls: list, output_dir: str) -> list:
 
 
 if __name__ == "__main__":
-    import glob
-    print("Testing image generation...\n")
+    print("Testing FLUX 1.1 Pro image generation...\n")
+    print("Model: FLUX 1.1 Pro (upgrade from SDXL)")
+    print("Expected: sharper, more photorealistic, more vibrant\n")
 
     TEST_VIDEO_ID = "00000000-0000-0000-0000-000000000001"
     TEST_SCENES = [
@@ -200,6 +203,13 @@ if __name__ == "__main__":
     database.StepTimer = FakeTimer
     database.log_step  = lambda *a, **kw: None
 
+    print("Generating 5 images (takes ~1-2 minutes)...\n")
     urls  = generate_images(TEST_VIDEO_ID, TEST_SCENES, "Axolotl")
-    paths = download_images(urls, "test_images")
-    print(f"\n✓ {len(paths)} images saved to test_images/")
+    paths = download_images(urls, "test_images_flux")
+
+    print(f"\n── Results ───────────────────────────────")
+    for p in paths:
+        print(f"  {p}  ({os.path.getsize(p) // 1024}KB)")
+
+    print(f"\n✓ Open 'test_images_flux/' and compare with 'test_images/'")
+    print(f"  FLUX should look significantly more photorealistic!")
