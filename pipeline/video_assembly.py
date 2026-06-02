@@ -254,3 +254,130 @@ if __name__ == "__main__":
     print(f"  File: {path}")
     print(f"  Size: {os.path.getsize(path)/(1024*1024):.1f}MB")
     print(f"\n✓ Open '{output_path}' and skip to the last 3 seconds!")
+
+
+def assemble_mixed_video(video_id, media_paths, audio_path, output_path, title, music_path=None):
+    """
+    Assemble final MP4 from mixed media (video clips + images) + voiceover.
+    media_paths: list of ("video", path) or ("image", path) tuples
+    """
+    with StepTimer(video_id, "assembly", "Assembling mixed media video"):
+
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        duration      = _get_audio_duration(audio_path)
+        time_per_scene = duration / len(media_paths)
+        print(f"  Audio: {duration:.1f}s | Time per scene: {time_per_scene:.1f}s")
+
+        # Step 1: Normalize all media to same format/duration
+        temp_dir  = output_path.replace(".mp4", "_temp_scenes")
+        os.makedirs(temp_dir, exist_ok=True)
+        scene_files = []
+
+        for i, (media_type, path) in enumerate(media_paths):
+            out = os.path.join(temp_dir, f"scene_{i+1:02d}.mp4")
+
+            if media_type == "video":
+                _normalize_video_clip(path, out, time_per_scene)
+            else:
+                _image_to_video(path, out, time_per_scene)
+
+            scene_files.append(out)
+            print(f"  ✓ Scene {i+1} normalized ({media_type})")
+
+        # Step 2: Concatenate all scenes
+        temp_concat = output_path.replace(".mp4", "_concat.mp4")
+        _concat_scenes(scene_files, temp_concat)
+        print(f"  ✓ Scenes concatenated")
+
+        # Step 3: Merge with audio
+        temp_audio = output_path.replace(".mp4", "_audio.mp4")
+        if music_path and os.path.exists(music_path):
+            _merge_with_music(temp_concat, audio_path, music_path, temp_audio)
+            print(f"  ✓ Merged with music")
+        else:
+            _merge_audio_only(temp_concat, audio_path, temp_audio)
+            print(f"  ✓ Merged with voiceover")
+
+        # Step 4: Add end screen
+        _add_end_screen(temp_audio, output_path, duration)
+        print(f"  ✓ End screen added")
+
+        # Cleanup
+        import shutil
+        for f in [temp_concat, temp_audio] + scene_files:
+            if os.path.exists(f): os.remove(f)
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+        size_mb = os.path.getsize(output_path) / (1024 * 1024)
+        print(f"  ✓ Final video: {output_path} ({size_mb:.1f}MB)")
+        update_video(video_id, status="ready", video_url=output_path)
+
+    return output_path
+
+
+def _normalize_video_clip(input_path, output_path, duration):
+    """Trim/pad video clip to exact duration and normalize resolution."""
+    cmd = [
+        "ffmpeg", "-hide_banner", "-loglevel", "error",
+        "-i", input_path,
+        "-t", str(duration),
+        "-vf", f"scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,"
+               f"pad={VIDEO_WIDTH}:{VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2:black,"
+               f"setsar=1,fps={FPS}",
+        "-c:v", VIDEO_CODEC,
+        "-crf", str(CRF),
+        "-preset", PRESET,
+        "-pix_fmt", "yuv420p",
+        "-an",
+        "-y", output_path
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Video normalize failed:\n{result.stderr}")
+
+
+def _image_to_video(image_path, output_path, duration):
+    """Convert a static image to a video clip of given duration."""
+    cmd = [
+        "ffmpeg", "-hide_banner", "-loglevel", "error",
+        "-loop", "1",
+        "-i", image_path,
+        "-t", str(duration),
+        "-vf", f"scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,"
+               f"pad={VIDEO_WIDTH}:{VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2:black,"
+               f"setsar=1,fps={FPS}",
+        "-c:v", VIDEO_CODEC,
+        "-crf", str(CRF),
+        "-preset", PRESET,
+        "-pix_fmt", "yuv420p",
+        "-y", output_path
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Image to video failed:\n{result.stderr}")
+
+
+def _concat_scenes(scene_files, output_path):
+    """Concatenate multiple video clips into one."""
+    concat_file = output_path + ".txt"
+    with open(concat_file, "w") as f:
+        for sf in scene_files:
+            abs_path = os.path.abspath(sf).replace("\\", "/")
+            f.write(f"file '{abs_path}'\n")
+
+    cmd = [
+        "ffmpeg", "-hide_banner", "-loglevel", "error",
+        "-f", "concat", "-safe", "0", "-i", concat_file,
+        "-c:v", VIDEO_CODEC,
+        "-crf", str(CRF),
+        "-preset", PRESET,
+        "-pix_fmt", "yuv420p",
+        "-y", output_path
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if os.path.exists(concat_file):
+        os.remove(concat_file)
+    if result.returncode != 0:
+        raise RuntimeError(f"Concat failed:\n{result.stderr}")
