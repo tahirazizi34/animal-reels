@@ -1,25 +1,36 @@
 """
 mixed_media_gen.py — Generates a mix of video clips and images for each video
-
-- 2 scenes → AI video clips (most dramatic)
-- 3 scenes → FLUX 1.1 Pro images (remaining)
-- Returns list of local file paths in scene order
 """
 
 import os
+import time
+import shutil
+import httpx
 from video_clip_gen import generate_video_clip, download_video_clip, pick_video_scenes
-from image_gen import _generate_single_image, download_images
+from image_gen import _generate_single_image
 from database import StepTimer
+
+
+def _download_image(url: str, output_path: str) -> str:
+    """Download a single image from URL to exact output path."""
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    response = httpx.get(url, follow_redirects=True, timeout=60)
+    response.raise_for_status()
+    with open(output_path, "wb") as f:
+        f.write(response.content)
+    size_kb = len(response.content) // 1024
+    print(f"  ✓ Saved {os.path.basename(output_path)} ({size_kb}KB)")
+    return output_path
 
 
 def generate_mixed_media(video_id: str, scene_descriptions: list, animal: str) -> list:
     """
     Generate mix of video clips and images for all scenes.
-    Returns list of local file paths in scene order.
+    Returns list of (media_type, local_path) tuples in scene order.
     """
     with StepTimer(video_id, "media", f"Generating mixed media for {animal}"):
 
-        # Step 1: Claude picks which 2 scenes get video
+        # Pick which 2 scenes get video
         print(f"  Selecting best scenes for video clips...")
         try:
             video_indices = pick_video_scenes(scene_descriptions, animal)
@@ -28,58 +39,58 @@ def generate_mixed_media(video_id: str, scene_descriptions: list, animal: str) -
             print(f"  ⚠ Scene selection failed ({e}) — using scenes 1 and 3")
             video_indices = [0, 2]
 
-        # Step 2: Generate each scene
-        media_paths = []
+        image_dir = os.path.join("output", video_id, "images")
+        clip_dir  = os.path.join("output", video_id, "clips")
+        os.makedirs(image_dir, exist_ok=True)
+        os.makedirs(clip_dir, exist_ok=True)
+
+        media_paths      = []
         video_clip_count = 0
-        image_count = 0
+        image_count      = 0
 
         for i, scene in enumerate(scene_descriptions):
-            if i in video_indices:
-                # Generate video clip
-                print(f"\n  Scene {i+1}/{len(scene_descriptions)} → VIDEO CLIP")
-                try:
-                    output_dir = os.path.join("output", video_id, "clips")
-                    output_path = os.path.join(output_dir, f"scene_{i+1:02d}.mp4")
-                    os.makedirs(output_dir, exist_ok=True)
+            scene_num = f"{i+1:02d}"
 
-                    url = generate_video_clip(scene, animal, i, video_id)
-                    path = download_video_clip(url, output_path)
+            if i in video_indices:
+                # ── VIDEO CLIP ─────────────────────────
+                print(f"\n  Scene {i+1}/{len(scene_descriptions)} → VIDEO CLIP")
+                clip_path = os.path.join(clip_dir, f"scene_{scene_num}.mp4")
+
+                try:
+                    url  = generate_video_clip(scene, animal, i, video_id)
+                    path = download_video_clip(url, clip_path)
                     media_paths.append(("video", path))
                     video_clip_count += 1
                     print(f"  ✓ Video clip ready")
 
                 except Exception as e:
-                    # Fallback to image if video fails
                     print(f"  ⚠ Video failed ({e}) — falling back to image")
-                    url = _generate_single_image(scene, animal, i, video_id)
-                    image_dir = os.path.join("output", video_id, "images")
-                    os.makedirs(image_dir, exist_ok=True)
-                    local_paths = download_images([url], image_dir)
-                    # Rename to correct scene number
-                    import shutil
-                    correct_path = os.path.join(image_dir, f"scene_{i+1:02d}.png")
-                    shutil.move(local_paths[0], correct_path)
-                    media_paths.append(("image", correct_path))
-                    image_count += 1
+                    image_path = os.path.join(image_dir, f"scene_{scene_num}.png")
+                    try:
+                        url  = _generate_single_image(scene, animal, i, video_id)
+                        path = _download_image(url, image_path)
+                        media_paths.append(("image", path))
+                        image_count += 1
+                    except Exception as e2:
+                        raise RuntimeError(f"Both video and image failed for scene {i+1}: {e2}")
 
             else:
-                # Generate FLUX image
+                # ── FLUX IMAGE ─────────────────────────
                 print(f"\n  Scene {i+1}/{len(scene_descriptions)} → IMAGE")
+                image_path = os.path.join(image_dir, f"scene_{scene_num}.png")
+
                 try:
-                    url = _generate_single_image(scene, animal, i, video_id)
-                    image_dir = os.path.join("output", video_id, "images")
-                    os.makedirs(image_dir, exist_ok=True)
-                    local_paths = download_images([url], image_dir)
-                    import shutil
-                    correct_path = os.path.join(image_dir, f"scene_{i+1:02d}.png")
-                    shutil.move(local_paths[0], correct_path)
-                    media_paths.append(("image", correct_path))
+                    url  = _generate_single_image(scene, animal, i, video_id)
+                    path = _download_image(url, image_path)
+                    media_paths.append(("image", path))
                     image_count += 1
                     print(f"  ✓ Image ready")
 
                 except Exception as e:
-                    print(f"  ⚠ Image failed: {e}")
-                    raise
+                    raise RuntimeError(f"Image failed for scene {i+1}: {e}")
+
+            if i < len(scene_descriptions) - 1:
+                time.sleep(3)
 
         print(f"\n  ✓ Media complete: {video_clip_count} video clips + {image_count} images")
         return media_paths
