@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 import argparse
 from config import validate, VIDEOS_PER_DAY, PIPELINE_MODE
 from database import create_video, update_video, get_setting, log_step
@@ -13,23 +14,28 @@ from music_selector import download_music
 from thumbnail_gen import generate_thumbnail
 from alerts import send_failure_alert, send_daily_summary
 
-# Read USE_MIXED_MEDIA — default False to avoid fal.ai 403 errors
-USE_MIXED_MEDIA = os.getenv("USE_MIXED_MEDIA", "false").lower() == "true"
+USE_MIXED_MEDIA  = os.getenv("USE_MIXED_MEDIA", "false").lower() == "true"
+POST_TO_FACEBOOK = os.getenv("POST_TO_FACEBOOK", "false").lower() == "true"
+
+# Retry settings for upload failures
+UPLOAD_RETRY_ATTEMPTS = 3
+UPLOAD_RETRY_DELAY    = 4 * 60 * 60  # 4 hours in seconds
 
 
 def run_pipeline(script_only=False, images_only=False, voice_only=False):
     print("═══════════════════════════════════════")
     print("  Animal Reels Pipeline")
-    mode_label = "Mixed Media (Video + Images)" if USE_MIXED_MEDIA else "Images Only"
+    mode_label = "Mixed Media" if USE_MIXED_MEDIA else "Images Only"
     print(f"  Mode: {mode_label}")
+    platforms = "YouTube" + (" + Facebook" if POST_TO_FACEBOOK else "")
+    print(f"  Posting to: {platforms}")
     print("═══════════════════════════════════════\n")
 
     try:
         validate()
         print("✓ Environment validated\n")
     except EnvironmentError as e:
-        print(f"✗ {e}")
-        sys.exit(1)
+        print(f"✗ {e}"); sys.exit(1)
 
     animals_enabled = get_setting("animals_enabled", "true")
     if animals_enabled != "true":
@@ -47,7 +53,7 @@ def run_pipeline(script_only=False, images_only=False, voice_only=False):
         result = run_single_video(
             script_only=script_only,
             images_only=images_only,
-            voice_only=voice_only
+            voice_only=voice_only,
         )
         if result:
             posted.append(result)
@@ -68,7 +74,10 @@ def run_pipeline(script_only=False, images_only=False, voice_only=False):
 
 
 def run_single_video(script_only=False, images_only=False, voice_only=False):
-    video_id = None
+    video_id     = None
+    local_images = []
+    video_path   = None
+    thumb_path   = None
 
     try:
         # ── Step 1: Create DB record ───────────────────
@@ -85,7 +94,7 @@ def run_single_video(script_only=False, images_only=False, voice_only=False):
         if script_only:
             print(json.dumps(script, indent=2)); return
 
-        # ── Step 3: Images (always) ────────────────────
+        # ── Step 3: Images ─────────────────────────────
         print("Step 3: Generating images...")
         image_urls   = generate_images(video_id, script["scene_descriptions"], script["animal"])
         image_dir    = os.path.join("output", video_id, "images")
@@ -93,7 +102,6 @@ def run_single_video(script_only=False, images_only=False, voice_only=False):
         print(f"✓ {len(local_images)} images saved\n")
 
         if USE_MIXED_MEDIA:
-            # Try to get video clips for some scenes
             try:
                 from mixed_media_gen import generate_mixed_media
                 media_paths = generate_mixed_media(
@@ -161,21 +169,13 @@ def run_single_video(script_only=False, images_only=False, voice_only=False):
         )
         print(f"✓ Thumbnail ready\n")
 
-        # ── Step 6: Post to YouTube ────────────────────
-        mode = PIPELINE_MODE
-        if mode == "auto":
-            print("Step 6: Posting to YouTube...")
-            upload_to_youtube(
-                video_id=video_id,
-                video_path=video_path,
-                title=script["title"],
-                privacy="public",
-                thumbnail_path=thumb_path,
-            )
-            print(f"✓ Posted to YouTube!\n")
-        else:
-            print("Step 6: Ready — awaiting approval.")
-            update_video(video_id, status="ready")
+        # ── Step 6: Upload with 4-hour retry ──────────
+        _upload_with_retry(
+            video_id=video_id,
+            video_path=video_path,
+            thumb_path=thumb_path,
+            script=script,
+        )
 
         return script["title"]
 
@@ -186,6 +186,73 @@ def run_single_video(script_only=False, images_only=False, voice_only=False):
             log_step(video_id, "pipeline", "failed", str(e))
         send_failure_alert(e, video_id=video_id)
         return None
+
+
+def _upload_with_retry(video_id, video_path, thumb_path, script):
+    """
+    Attempt to upload to YouTube (and Facebook) with retries.
+    Waits 4 hours between attempts if upload fails.
+    """
+    mode = PIPELINE_MODE
+
+    for attempt in range(1, UPLOAD_RETRY_ATTEMPTS + 1):
+        try:
+            if mode == "auto":
+                # ── YouTube ────────────────────────────
+                print(f"Step 6a: Posting to YouTube (attempt {attempt}/{UPLOAD_RETRY_ATTEMPTS})...")
+                upload_to_youtube(
+                    video_id=video_id,
+                    video_path=video_path,
+                    title=script["title"],
+                    privacy="public",
+                    thumbnail_path=thumb_path,
+                )
+                print(f"✓ Posted to YouTube!\n")
+
+                # ── Facebook ───────────────────────────
+                if POST_TO_FACEBOOK:
+                    print(f"Step 6b: Posting to Facebook Reels...")
+                    try:
+                        from facebook_upload import post_reel
+                        post_reel(
+                            video_path=video_path,
+                            title=script["title"],
+                        )
+                        print(f"✓ Posted to Facebook!\n")
+                    except Exception as fb_err:
+                        print(f"  ⚠ Facebook posting failed: {fb_err}")
+                        print(f"  ⚠ YouTube post was successful\n")
+
+                # Success — update DB and return
+                update_video(video_id, status="posted")
+                return
+
+            else:
+                print("Step 6: Ready — awaiting approval.")
+                update_video(video_id, status="ready")
+                return
+
+        except Exception as e:
+            print(f"\n  ✗ Upload attempt {attempt} failed: {e}")
+
+            if attempt < UPLOAD_RETRY_ATTEMPTS:
+                wait_hours = UPLOAD_RETRY_DELAY / 3600
+                print(f"  ⏳ Waiting {wait_hours:.0f} hours before retry {attempt + 1}...")
+                print(f"  (Video is assembled and ready — just waiting to upload)\n")
+
+                # Update status to show it's waiting
+                update_video(video_id, status="pending", error_message=f"Upload attempt {attempt} failed: {e}. Retrying in {wait_hours:.0f}h")
+                log_step(video_id, "posting", "failed", f"Attempt {attempt}: {e}")
+
+                time.sleep(UPLOAD_RETRY_DELAY)
+                print(f"  ▶ Retrying upload now...\n")
+            else:
+                # All attempts exhausted
+                print(f"  ✗ All {UPLOAD_RETRY_ATTEMPTS} upload attempts failed")
+                print(f"  Video assembled at: {video_path}")
+                update_video(video_id, status="failed", error_message=f"All {UPLOAD_RETRY_ATTEMPTS} upload attempts failed. Last error: {e}")
+                log_step(video_id, "posting", "failed", f"All attempts exhausted: {e}")
+                raise
 
 
 if __name__ == "__main__":
