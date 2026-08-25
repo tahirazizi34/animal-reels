@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Animal Reels — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #080b08; --surface: #0f130f; --surface2: #161c16;
+    --border: rgba(124,252,110,0.08); --border2: rgba(124,252,110,0.18);
+    --text: #e2ebe2; --muted: #5a6e5a; --accent: #7cfc6e; --accent2: #4db840;
+    --dim: rgba(124,252,110,0.10); --dim2: rgba(124,252,110,0.05);
+    --red: #ff6b6b; --red-dim: rgba(255,107,107,0.12);
+    --amber: #ffc46b; --amber-dim: rgba(255,196,107,0.12);
+    --blue: #6bcfff; --blue-dim: rgba(107,207,255,0.10);
+    --r: 12px; --font: 'Outfit', sans-serif; --mono: 'Space Mono', monospace;
+  }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+  /* Login */
+  #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 0%, rgba(124,252,110,0.06) 0%, transparent 70%); }
+  .login-box { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--r); padding: 48px 40px; width: 360px; text-align: center; }
+  .login-icon { font-size: 40px; margin-bottom: 16px; }
+  .login-title { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+  .login-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+  .login-box input { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 12px 14px; outline: none; margin-bottom: 12px; }
+  .login-box input:focus { border-color: var(--accent); }
+  .login-btn { width: 100%; padding: 12px; background: var(--accent); color: #080b08; border: none; border-radius: 8px; font-family: var(--font); font-size: 14px; font-weight: 700; cursor: pointer; }
+  .login-btn:hover { opacity: 0.88; }
+  .login-error { font-size: 12px; color: var(--red); margin-top: 10px; }
+
+  /* App shell */
+  #app { display: none; }
+  .shell { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 28px 0; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; }
+  .logo { padding: 0 22px 28px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .logo-row { display: flex; align-items: center; gap: 10px; }
+  .logo-badge { width: 36px; height: 36px; background: var(--dim); border: 1px solid var(--border2); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .logo-name { font-size: 14px; font-weight: 700; }
+  .logo-tag { font-size: 9px; font-family: var(--mono); color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 1px; }
+  .pulse { display: inline-block; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; margin-right: 4px; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  nav { flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 22px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border-left: 2px solid transparent; transition: all 0.15s; user-select: none; }
+  .nav-item:hover { color: var(--text); background: var(--dim2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--dim2); }
+  .sidebar-footer { padding: 20px 22px; border-top: 1px solid var(--border); }
+  .refresh-btn { width: 100%; padding: 11px; background: var(--dim); border: 1px solid var(--border2); color: var(--accent); border-radius: 8px; font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .refresh-btn:hover { background: var(--dim2); }
+
+  /* Main */
+  .main { padding: 36px 40px; overflow-y: auto; }
+  .page { display: none; animation: fadeIn 0.2s ease; }
+  .page.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-bottom: 28px; }
+
+  /* Stats */
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 32px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; }
+  .stat-label { font-size: 10px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+  .stat-value { font-size: 32px; font-weight: 700; line-height: 1; }
+  .stat-value.green { color: var(--accent); }
+  .stat-value.red   { color: var(--red); }
+  .stat-value.amber { color: var(--amber); }
+  .stat-value.blue  { color: var(--blue); }
+
+  /* Section */
+  .section-label { font-size: 10px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 14px; }
+
+  /* Video cards */
+  .video-list { display: flex; flex-direction: column; gap: 10px; }
+  .video-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 16px 20px; display: grid; grid-template-columns: 44px 1fr auto auto; align-items: center; gap: 14px; transition: border-color 0.15s; }
+  .video-card:hover { border-color: var(--border2); }
+  .video-emoji { font-size: 24px; }
+  .video-title { font-size: 14px; font-weight: 600; }
+  .video-meta { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 3px; }
+  .badge { font-size: 10px; font-family: var(--mono); padding: 4px 10px; border-radius: 6px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; text-transform: uppercase; }
+  .badge-posted    { background: var(--dim);      color: var(--accent); }
+  .badge-ready     { background: var(--blue-dim);  color: var(--blue); }
+  .badge-pending   { background: var(--amber-dim); color: var(--amber); }
+  .badge-failed    { background: var(--red-dim);   color: var(--red); }
+  .badge-generating{ background: var(--amber-dim); color: var(--amber); }
+  .video-actions { display: flex; gap: 8px; }
+  .act-btn { padding: 6px 12px; border-radius: 6px; font-size: 11px; font-family: var(--mono); cursor: pointer; border: 1px solid var(--border2); background: transparent; color: var(--muted); transition: all 0.15s; text-decoration: none; display: inline-flex; align-items: center; }
+  .act-btn:hover { color: var(--text); background: var(--surface2); }
+
+  /* Logs */
+  .log-list { display: flex; flex-direction: column; gap: 6px; }
+  .log-entry { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; display: grid; grid-template-columns: 8px auto 90px 1fr; align-items: center; gap: 12px; font-family: var(--mono); font-size: 11px; }
+  .log-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .log-dot.done    { background: var(--accent); }
+  .log-dot.failed  { background: var(--red); }
+  .log-dot.started { background: var(--amber); }
+  .log-time { color: var(--muted); }
+  .log-step { color: var(--blue); }
+  .log-msg  { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Settings */
+  .settings-grid { display: flex; flex-direction: column; gap: 12px; }
+  .setting-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; }
+  .setting-label { font-size: 14px; font-weight: 600; }
+  .setting-sub   { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .toggle { width: 44px; height: 26px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 999px; position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+  .toggle::after { content: ''; position: absolute; width: 20px; height: 20px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: transform 0.2s; }
+  .toggle.on::after { transform: translateX(18px); }
+  select, input[type="number"] { background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 8px 12px; outline: none; }
+
+  /* Empty / loading */
+  .empty { text-align: center; padding: 60px; color: var(--muted); }
+  .loading { color: var(--muted); font-family: var(--mono); font-size: 12px; padding: 20px 0; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--r); padding: 12px 18px; font-size: 13px; font-family: var(--mono); color: var(--text); opacity: 0; transform: translateY(8px); transition: all 0.2s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-icon">🐾</div>
+    <div class="login-title">Animal Reels</div>
+    <div class="login-sub">Private Dashboard</div>
+    <input type="password" id="secret-input" placeholder="Enter dashboard password" onkeydown="if(event.key==='Enter')login()">
+    <button class="login-btn" onclick="login()">Access Dashboard</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+<div class="shell">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-row">
+        <div class="logo-badge">🐾</div>
+        <div>
+          <div class="logo-name">Animal Reels</div>
+          <div class="logo-tag"><span class="pulse"></span>Live</div>
+        </div>
+      </div>
+    </div>
+    <nav>
+      <div class="nav-item active" onclick="showPage('overview', this)">◈ &nbsp;Overview</div>
+      <div class="nav-item" onclick="showPage('videos', this)">▶ &nbsp;Videos</div>
+      <div class="nav-item" onclick="showPage('logs', this)">≡ &nbsp;Pipeline Logs</div>
+      <div class="nav-item" onclick="showPage('settings', this)">⚙ &nbsp;Settings</div>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="refresh-btn" onclick="refreshAll()">↻ &nbsp;Refresh Data</button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- Overview -->
+    <div class="page active" id="page-overview">
+      <div class="page-title">Overview</div>
+      <div class="page-sub" id="overview-date">Loading...</div>
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Today</div><div class="stat-value" id="s-today">—</div></div>
+        <div class="stat"><div class="stat-label">Posted</div><div class="stat-value green" id="s-posted">—</div></div>
+        <div class="stat"><div class="stat-label">Pending</div><div class="stat-value amber" id="s-pending">—</div></div>
+        <div class="stat"><div class="stat-label">Failed</div><div class="stat-value red" id="s-failed">—</div></div>
+        <div class="stat"><div class="stat-label">All Time</div><div class="stat-value blue" id="s-total">—</div></div>
+      </div>
+      <div class="section-label">Recent Videos</div>
+      <div class="video-list" id="overview-videos"><div class="loading">Loading...</div></div>
+    </div>
+
+    <!-- Videos -->
+    <div class="page" id="page-videos">
+      <div class="page-title">All Videos</div>
+      <div class="page-sub">Every video generated by the pipeline</div>
+      <div class="video-list" id="all-videos"><div class="loading">Loading...</div></div>
+    </div>
+
+    <!-- Logs -->
+    <div class="page" id="page-logs">
+      <div class="page-title">Pipeline Logs</div>
+      <div class="page-sub">Step-by-step trace of every run</div>
+      <div class="log-list" id="log-list"><div class="loading">Loading...</div></div>
+    </div>
+
+    <!-- Settings -->
+    <div class="page" id="page-settings">
+      <div class="page-title">Settings</div>
+      <div class="page-sub">Configure your channels and pipeline</div>
+      <div class="settings-grid" id="settings-grid"><div class="loading">Loading...</div></div>
+    </div>
+
+  </main>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let SECRET = localStorage.getItem('ar_secret') || '';
+
+// ── Auth ────────────────────────────────────────────
+function login() {
+  const val = document.getElementById('secret-input').value.trim();
+  if (!val) return;
+  SECRET = val;
+  apiFetch('/api/stats').then(() => {
+    localStorage.setItem('ar_secret', SECRET);
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initDashboard();
+  }).catch(() => {
+    document.getElementById('login-error').textContent = 'Incorrect password.';
+    SECRET = '';
+  });
+}
+
+// Auto-login
+if (SECRET) {
+  apiFetch('/api/stats').then(() => {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initDashboard();
+  }).catch(() => { localStorage.removeItem('ar_secret'); SECRET = ''; });
+}
+
+// ── API ─────────────────────────────────────────────
+async function apiFetch(path, options = {}) {
+  const res = await fetch(path, {
+    ...options,
+    headers: { 'Authorization': `Bearer ${SECRET}`, 'Content-Type': 'application/json', ...(options.headers || {}) }
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
+// ── Init ────────────────────────────────────────────
+function initDashboard() {
+  const now = new Date();
+  document.getElementById('overview-date').textContent =
+    now.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  refreshAll();
+  setInterval(refreshAll, 30000);
+}
+
+function refreshAll() {
+  loadStats();
+  const activePage = document.querySelector('.page.active')?.id;
+  if (activePage === 'page-overview') loadOverviewVideos();
+  if (activePage === 'page-videos')   loadAllVideos();
+  if (activePage === 'page-logs')     loadLogs();
+  if (activePage === 'page-settings') loadSettings();
+}
+
+// ── Stats ───────────────────────────────────────────
+async function loadStats() {
+  try {
+    const s = await apiFetch('/api/stats');
+    document.getElementById('s-today').textContent   = s.today   ?? 0;
+    document.getElementById('s-posted').textContent  = s.posted  ?? 0;
+    document.getElementById('s-pending').textContent = s.pending ?? 0;
+    document.getElementById('s-failed').textContent  = s.failed  ?? 0;
+    document.getElementById('s-total').textContent   = s.total   ?? 0;
+  } catch(e) { console.error('Stats:', e); }
+}
+
+// ── Videos ──────────────────────────────────────────
+const EMOJI_MAP = {
+  shark:'🦈', octopus:'🐙', frog:'🐸', eagle:'🦅', penguin:'🐧',
+  bear:'🐻', wolf:'🐺', fox:'🦊', elephant:'🐘', lion:'🦁',
+  tiger:'🐯', giraffe:'🦒', butterfly:'🦋', turtle:'🐢', crab:'🦀',
+  axolotl:'🦎', tardigrade:'🦠', lizard:'🦎', snake:'🐍', bird:'🐦',
+};
+
+function getEmoji(animal) {
+  if (!animal) return '🐾';
+  const l = animal.toLowerCase();
+  for (const [k, e] of Object.entries(EMOJI_MAP)) { if (l.includes(k)) return e; }
+  return '🐾';
+}
+
+function timeSince(d) {
+  const diff = Date.now() - new Date(d).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h/24)}d ago`;
+}
+
+function badgeHtml(status) {
+  const map = {
+    posted:     ['badge-posted',    '✓ posted'],
+    ready:      ['badge-ready',     '● ready'],
+    approved:   ['badge-ready',     '● approved'],
+    pending:    ['badge-pending',   '◌ pending'],
+    generating: ['badge-generating','◌ generating'],
+    failed:     ['badge-failed',    '✗ failed'],
+  };
+  const [cls, label] = map[status] || ['badge-pending', status];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function videoCardHtml(v) {
+  let actions = '';
+  if (v.youtube_id) {
+    actions += `<a class="act-btn" href="https://youtube.com/watch?v=${v.youtube_id}" target="_blank">▶ watch</a>`;
+  }
+  return `
+    <div class="video-card">
+      <div class="video-emoji">${getEmoji(v.animal)}</div>
+      <div>
+        <div class="video-title">${v.title || 'Generating...'}</div>
+        <div class="video-meta">${v.animal || '—'} · ${timeSince(v.created_at)}</div>
+      </div>
+      ${badgeHtml(v.status)}
+      <div class="video-actions">${actions}</div>
+    </div>`;
+}
+
+async function loadOverviewVideos() {
+  try {
+    const videos = await apiFetch('/api/videos');
+    const el = document.getElementById('overview-videos');
+    if (!videos.length) { el.innerHTML = '<div class="empty">🐾<br>No videos yet</div>'; return; }
+    el.innerHTML = videos.slice(0, 5).map(videoCardHtml).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function loadAllVideos() {
+  try {
+    const videos = await apiFetch('/api/videos');
+    const el = document.getElementById('all-videos');
+    if (!videos.length) { el.innerHTML = '<div class="empty">🐾<br>No videos yet</div>'; return; }
+    el.innerHTML = videos.map(videoCardHtml).join('');
+  } catch(e) { console.error(e); }
+}
+
+// ── Logs ────────────────────────────────────────────
+async function loadLogs() {
+  try {
+    const logs = await apiFetch('/api/logs');
+    const el = document.getElementById('log-list');
+    if (!logs.length) { el.innerHTML = '<div class="empty">No logs yet</div>'; return; }
+    el.innerHTML = logs.map(l => `
+      <div class="log-entry">
+        <div class="log-dot ${l.status}"></div>
+        <span class="log-time">${new Date(l.created_at).toLocaleTimeString()}</span>
+        <span class="log-step">${l.step}</span>
+        <span class="log-msg">${l.message || ''}</span>
+      </div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+// ── Settings ─────────────────────────────────────────
+async function loadSettings() {
+  try {
+    const s = await apiFetch('/api/settings');
+    document.getElementById('settings-grid').innerHTML = `
+      <div class="setting-row">
+        <div><div class="setting-label">🐾 Animals Channel</div><div class="setting-sub">Generate daily animal fact videos</div></div>
+        <div class="toggle ${s.animals_enabled==='true'?'on':''}" onclick="toggleSetting('animals_enabled', this)"></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Videos Per Day</div><div class="setting-sub">How many videos per pipeline run</div></div>
+        <input type="number" min="1" max="5" value="${s.videos_per_day||1}" style="width:80px;text-align:center" onchange="saveSetting('videos_per_day', this.value)">
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Pipeline Mode</div><div class="setting-sub">Auto posts or waits for approval</div></div>
+        <select onchange="saveSetting('pipeline_mode', this.value)">
+          <option value="approve" ${s.pipeline_mode==='approve'?'selected':''}>Approve first</option>
+          <option value="auto"    ${s.pipeline_mode==='auto'?'selected':''}>Fully automatic</option>
+        </select>
+      </div>`;
+  } catch(e) { console.error(e); }
+}
+
+async function toggleSetting(key, el) {
+  el.classList.toggle('on');
+  await saveSetting(key, el.classList.contains('on') ? 'true' : 'false');
+}
+
+async function saveSetting(key, value) {
+  try {
+    await apiFetch('/api/settings', { method:'POST', body: JSON.stringify({[key]: value}) });
+    showToast(`Saved: ${key}`);
+  } catch(e) { showToast('Failed to save'); }
+}
+
+// ── Nav ──────────────────────────────────────────────
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  el.classList.add('active');
+  if (name === 'videos')   loadAllVideos();
+  if (name === 'logs')     loadLogs();
+  if (name === 'settings') loadSettings();
+}
+
+// ── Toast ─────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
