@@ -11,7 +11,7 @@
   :root {
     --bg: #080b08; --surface: #0f130f; --surface2: #161c16;
     --border: rgba(124,252,110,0.08); --border2: rgba(124,252,110,0.18);
-    --text: #e2ebe2; --muted: #5a6e5a; --accent: #7cfc6e; --accent2: #4db840;
+    --text: #e2ebe2; --muted: #5a6e5a; --accent: #7cfc6e;
     --dim: rgba(124,252,110,0.10); --dim2: rgba(124,252,110,0.05);
     --red: #ff6b6b; --red-dim: rgba(255,107,107,0.12);
     --amber: #ffc46b; --amber-dim: rgba(255,196,107,0.12);
@@ -20,7 +20,6 @@
   }
   body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
 
-  /* Login */
   #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 0%, rgba(124,252,110,0.06) 0%, transparent 70%); }
   .login-box { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--r); padding: 48px 40px; width: 360px; text-align: center; }
   .login-icon { font-size: 40px; margin-bottom: 16px; }
@@ -32,11 +31,9 @@
   .login-btn:hover { opacity: 0.88; }
   .login-error { font-size: 12px; color: var(--red); margin-top: 10px; }
 
-  /* App shell */
   #app { display: none; }
   .shell { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
 
-  /* Sidebar */
   .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 28px 0; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; }
   .logo { padding: 0 22px 28px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
   .logo-row { display: flex; align-items: center; gap: 10px; }
@@ -53,7 +50,6 @@
   .refresh-btn { width: 100%; padding: 11px; background: var(--dim); border: 1px solid var(--border2); color: var(--accent); border-radius: 8px; font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; }
   .refresh-btn:hover { background: var(--dim2); }
 
-  /* Main */
   .main { padding: 36px 40px; overflow-y: auto; }
   .page { display: none; animation: fadeIn 0.2s ease; }
   .page.active { display: block; }
@@ -61,7 +57,6 @@
   .page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
   .page-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-bottom: 28px; }
 
-  /* Stats */
   .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 32px; }
   .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; }
   .stat-label { font-size: 10px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
@@ -71,13 +66,12 @@
   .stat-value.amber { color: var(--amber); }
   .stat-value.blue  { color: var(--blue); }
 
-  /* Section */
   .section-label { font-size: 10px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 14px; }
 
-  /* Video cards */
   .video-list { display: flex; flex-direction: column; gap: 10px; }
   .video-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 16px 20px; display: grid; grid-template-columns: 44px 1fr auto auto; align-items: center; gap: 14px; transition: border-color 0.15s; }
   .video-card:hover { border-color: var(--border2); }
+  .video-card.failed-card { border-color: rgba(255,107,107,0.2); }
   .video-emoji { font-size: 24px; }
   .video-title { font-size: 14px; font-weight: 600; }
   .video-meta { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 3px; }
@@ -87,11 +81,16 @@
   .badge-pending   { background: var(--amber-dim); color: var(--amber); }
   .badge-failed    { background: var(--red-dim);   color: var(--red); }
   .badge-generating{ background: var(--amber-dim); color: var(--amber); }
-  .video-actions { display: flex; gap: 8px; }
-  .act-btn { padding: 6px 12px; border-radius: 6px; font-size: 11px; font-family: var(--mono); cursor: pointer; border: 1px solid var(--border2); background: transparent; color: var(--muted); transition: all 0.15s; text-decoration: none; display: inline-flex; align-items: center; }
-  .act-btn:hover { color: var(--text); background: var(--surface2); }
+  .badge-resuming  { background: var(--amber-dim); color: var(--amber); animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
-  /* Logs */
+  .video-actions { display: flex; gap: 8px; }
+  .act-btn { padding: 6px 12px; border-radius: 6px; font-size: 11px; font-family: var(--mono); cursor: pointer; border: 1px solid var(--border2); background: transparent; color: var(--muted); transition: all 0.15s; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+  .act-btn:hover { color: var(--text); background: var(--surface2); }
+  .act-btn.resume-btn { border-color: rgba(255,196,107,0.4); color: var(--amber); background: var(--amber-dim); }
+  .act-btn.resume-btn:hover { background: rgba(255,196,107,0.2); }
+  .act-btn.resume-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
   .log-list { display: flex; flex-direction: column; gap: 6px; }
   .log-entry { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; display: grid; grid-template-columns: 8px auto 90px 1fr; align-items: center; gap: 12px; font-family: var(--mono); font-size: 11px; }
   .log-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
@@ -102,7 +101,6 @@
   .log-step { color: var(--blue); }
   .log-msg  { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* Settings */
   .settings-grid { display: flex; flex-direction: column; gap: 12px; }
   .setting-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; }
   .setting-label { font-size: 14px; font-weight: 600; }
@@ -113,13 +111,22 @@
   .toggle.on::after { transform: translateX(18px); }
   select, input[type="number"] { background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 8px 12px; outline: none; }
 
-  /* Empty / loading */
   .empty { text-align: center; padding: 60px; color: var(--muted); }
   .loading { color: var(--muted); font-family: var(--mono); font-size: 12px; padding: 20px 0; }
 
-  /* Toast */
-  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--r); padding: 12px 18px; font-size: 13px; font-family: var(--mono); color: var(--text); opacity: 0; transform: translateY(8px); transition: all 0.2s; pointer-events: none; z-index: 999; }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--r); padding: 12px 18px; font-size: 13px; font-family: var(--mono); color: var(--text); opacity: 0; transform: translateY(8px); transition: all 0.2s; pointer-events: none; z-index: 999; max-width: 400px; }
   .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Resume modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; display: none; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--r); padding: 32px; width: 420px; }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+  .modal-warning { background: var(--amber-dim); border: 1px solid rgba(255,196,107,0.3); border-radius: 8px; padding: 12px 16px; font-size: 12px; color: var(--amber); font-family: var(--mono); margin-bottom: 20px; line-height: 1.6; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-cancel { padding: 10px 20px; border: 1px solid var(--border2); background: transparent; color: var(--muted); border-radius: 8px; font-family: var(--font); cursor: pointer; }
+  .modal-confirm { padding: 10px 20px; background: var(--amber); color: #080b08; border: none; border-radius: 8px; font-family: var(--font); font-weight: 700; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -133,6 +140,23 @@
     <input type="password" id="secret-input" placeholder="Enter dashboard password" onkeydown="if(event.key==='Enter')login()">
     <button class="login-btn" onclick="login()">Access Dashboard</button>
     <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- Resume Modal -->
+<div class="modal-overlay" id="resume-modal">
+  <div class="modal">
+    <div class="modal-title">↺ Resume Failed Video</div>
+    <div class="modal-sub" id="modal-video-title">Retrying upload to YouTube</div>
+    <div class="modal-warning">
+      ⚠ Note: Resume only works if the video file exists on Railway.<br>
+      If the service was restarted, files may be gone — run<br>
+      <strong>python resume.py</strong> locally instead.
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-confirm" onclick="confirmResume()">↺ Resume Upload</button>
+    </div>
   </div>
 </div>
 
@@ -161,8 +185,6 @@
   </aside>
 
   <main class="main">
-
-    <!-- Overview -->
     <div class="page active" id="page-overview">
       <div class="page-title">Overview</div>
       <div class="page-sub" id="overview-date">Loading...</div>
@@ -177,27 +199,23 @@
       <div class="video-list" id="overview-videos"><div class="loading">Loading...</div></div>
     </div>
 
-    <!-- Videos -->
     <div class="page" id="page-videos">
       <div class="page-title">All Videos</div>
       <div class="page-sub">Every video generated by the pipeline</div>
       <div class="video-list" id="all-videos"><div class="loading">Loading...</div></div>
     </div>
 
-    <!-- Logs -->
     <div class="page" id="page-logs">
       <div class="page-title">Pipeline Logs</div>
       <div class="page-sub">Step-by-step trace of every run</div>
       <div class="log-list" id="log-list"><div class="loading">Loading...</div></div>
     </div>
 
-    <!-- Settings -->
     <div class="page" id="page-settings">
       <div class="page-title">Settings</div>
       <div class="page-sub">Configure your channels and pipeline</div>
       <div class="settings-grid" id="settings-grid"><div class="loading">Loading...</div></div>
     </div>
-
   </main>
 </div>
 </div>
@@ -205,9 +223,9 @@
 <div class="toast" id="toast"></div>
 
 <script>
-let SECRET = localStorage.getItem('ar_secret') || '';
+let SECRET   = localStorage.getItem('ar_secret') || '';
+let pendingResumeId = null;
 
-// ── Auth ────────────────────────────────────────────
 function login() {
   const val = document.getElementById('secret-input').value.trim();
   if (!val) return;
@@ -223,7 +241,6 @@ function login() {
   });
 }
 
-// Auto-login
 if (SECRET) {
   apiFetch('/api/stats').then(() => {
     document.getElementById('login-screen').style.display = 'none';
@@ -232,7 +249,6 @@ if (SECRET) {
   }).catch(() => { localStorage.removeItem('ar_secret'); SECRET = ''; });
 }
 
-// ── API ─────────────────────────────────────────────
 async function apiFetch(path, options = {}) {
   const res = await fetch(path, {
     ...options,
@@ -242,7 +258,6 @@ async function apiFetch(path, options = {}) {
   return res.json();
 }
 
-// ── Init ────────────────────────────────────────────
 function initDashboard() {
   const now = new Date();
   document.getElementById('overview-date').textContent =
@@ -260,7 +275,6 @@ function refreshAll() {
   if (activePage === 'page-settings') loadSettings();
 }
 
-// ── Stats ───────────────────────────────────────────
 async function loadStats() {
   try {
     const s = await apiFetch('/api/stats');
@@ -269,15 +283,15 @@ async function loadStats() {
     document.getElementById('s-pending').textContent = s.pending ?? 0;
     document.getElementById('s-failed').textContent  = s.failed  ?? 0;
     document.getElementById('s-total').textContent   = s.total   ?? 0;
-  } catch(e) { console.error('Stats:', e); }
+  } catch(e) {}
 }
 
-// ── Videos ──────────────────────────────────────────
 const EMOJI_MAP = {
   shark:'🦈', octopus:'🐙', frog:'🐸', eagle:'🦅', penguin:'🐧',
   bear:'🐻', wolf:'🐺', fox:'🦊', elephant:'🐘', lion:'🦁',
   tiger:'🐯', giraffe:'🦒', butterfly:'🦋', turtle:'🐢', crab:'🦀',
-  axolotl:'🦎', tardigrade:'🦠', lizard:'🦎', snake:'🐍', bird:'🐦',
+  axolotl:'🦎', snake:'🐍', bird:'🐦', shrimp:'🦐', beetle:'🪲',
+  mantis:'🦗', parrot:'🦜', bat:'🦇', squid:'🦑', jellyfish:'🪼',
 };
 
 function getEmoji(animal) {
@@ -305,22 +319,30 @@ function badgeHtml(status) {
     pending:    ['badge-pending',   '◌ pending'],
     generating: ['badge-generating','◌ generating'],
     failed:     ['badge-failed',    '✗ failed'],
+    resuming:   ['badge-resuming',  '↺ resuming'],
   };
   const [cls, label] = map[status] || ['badge-pending', status];
   return `<span class="badge ${cls}">${label}</span>`;
 }
 
 function videoCardHtml(v) {
+  const isFailed = v.status === 'failed';
   let actions = '';
+
   if (v.youtube_id) {
     actions += `<a class="act-btn" href="https://youtube.com/watch?v=${v.youtube_id}" target="_blank">▶ watch</a>`;
   }
+  if (isFailed) {
+    actions += `<button class="act-btn resume-btn" onclick="showResumeModal('${v.id}', '${(v.title||'').replace(/'/g,"\\'")}')">↺ resume</button>`;
+  }
+
   return `
-    <div class="video-card">
+    <div class="video-card ${isFailed ? 'failed-card' : ''}" id="card-${v.id}">
       <div class="video-emoji">${getEmoji(v.animal)}</div>
       <div>
         <div class="video-title">${v.title || 'Generating...'}</div>
         <div class="video-meta">${v.animal || '—'} · ${timeSince(v.created_at)}</div>
+        ${isFailed && v.error_message ? `<div class="video-meta" style="color:var(--red);margin-top:4px">${v.error_message.substring(0,80)}...</div>` : ''}
       </div>
       ${badgeHtml(v.status)}
       <div class="video-actions">${actions}</div>
@@ -333,7 +355,7 @@ async function loadOverviewVideos() {
     const el = document.getElementById('overview-videos');
     if (!videos.length) { el.innerHTML = '<div class="empty">🐾<br>No videos yet</div>'; return; }
     el.innerHTML = videos.slice(0, 5).map(videoCardHtml).join('');
-  } catch(e) { console.error(e); }
+  } catch(e) {}
 }
 
 async function loadAllVideos() {
@@ -342,10 +364,9 @@ async function loadAllVideos() {
     const el = document.getElementById('all-videos');
     if (!videos.length) { el.innerHTML = '<div class="empty">🐾<br>No videos yet</div>'; return; }
     el.innerHTML = videos.map(videoCardHtml).join('');
-  } catch(e) { console.error(e); }
+  } catch(e) {}
 }
 
-// ── Logs ────────────────────────────────────────────
 async function loadLogs() {
   try {
     const logs = await apiFetch('/api/logs');
@@ -358,10 +379,9 @@ async function loadLogs() {
         <span class="log-step">${l.step}</span>
         <span class="log-msg">${l.message || ''}</span>
       </div>`).join('');
-  } catch(e) { console.error(e); }
+  } catch(e) {}
 }
 
-// ── Settings ─────────────────────────────────────────
 async function loadSettings() {
   try {
     const s = await apiFetch('/api/settings');
@@ -381,7 +401,7 @@ async function loadSettings() {
           <option value="auto"    ${s.pipeline_mode==='auto'?'selected':''}>Fully automatic</option>
         </select>
       </div>`;
-  } catch(e) { console.error(e); }
+  } catch(e) {}
 }
 
 async function toggleSetting(key, el) {
@@ -396,6 +416,73 @@ async function saveSetting(key, value) {
   } catch(e) { showToast('Failed to save'); }
 }
 
+// ── Resume ───────────────────────────────────────────
+function showResumeModal(videoId, title) {
+  pendingResumeId = videoId;
+  document.getElementById('modal-video-title').textContent = title || 'Retrying upload to YouTube';
+  document.getElementById('resume-modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('resume-modal').classList.remove('show');
+  pendingResumeId = null;
+}
+
+async function confirmResume() {
+  if (!pendingResumeId) return;
+  const videoId = pendingResumeId;
+  closeModal();
+
+  // Update button to show resuming state
+  const card = document.getElementById(`card-${videoId}`);
+  if (card) {
+    const btn = card.querySelector('.resume-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '↺ resuming...'; }
+    const badge = card.querySelector('.badge');
+    if (badge) { badge.className = 'badge badge-resuming'; badge.textContent = '↺ resuming'; }
+  }
+
+  try {
+    const result = await apiFetch('/api/resume', {
+      method: 'POST',
+      body: JSON.stringify({ video_id: videoId })
+    });
+
+    showToast('↺ Resume started — checking status...');
+
+    // Poll for completion
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const status = await apiFetch(`/api/resume/status?video_id=${videoId}`);
+        const s = status.status;
+
+        if (s === 'completed') {
+          clearInterval(poll);
+          showToast('✓ Video successfully uploaded to YouTube!');
+          setTimeout(refreshAll, 2000);
+        } else if (s && s.startsWith('failed')) {
+          clearInterval(poll);
+          showToast(`✗ Resume failed: ${s}`);
+          setTimeout(refreshAll, 2000);
+        } else if (s === 'failed_no_file') {
+          clearInterval(poll);
+          showToast('✗ Video file not on Railway — run python resume.py locally');
+          setTimeout(refreshAll, 2000);
+        } else if (attempts > 60) {
+          clearInterval(poll);
+          showToast('Resume is taking long — check Railway logs');
+        }
+      } catch(e) {}
+    }, 5000);
+
+  } catch(e) {
+    showToast('✗ Failed to start resume');
+    setTimeout(refreshAll, 1000);
+  }
+}
+
 // ── Nav ──────────────────────────────────────────────
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -407,13 +494,17 @@ function showPage(name, el) {
   if (name === 'settings') loadSettings();
 }
 
-// ── Toast ─────────────────────────────────────────────
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+  setTimeout(() => t.classList.remove('show'), 4000);
 }
+
+// Close modal on overlay click
+document.getElementById('resume-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
 </script>
 </body>
 </html>
