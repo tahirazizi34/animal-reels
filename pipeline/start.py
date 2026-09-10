@@ -1,22 +1,33 @@
 """
 start.py — Launches both dashboard server and daily scheduler in parallel.
-Railway only needs one service to run both.
 """
 
 import threading
 import os
-from dashboard_server import DashboardHandler, PORT
+import time
 from http.server import HTTPServer
+
+PORT = int(os.getenv("PORT", "8080"))
 
 
 def run_dashboard():
-    print(f"[Dashboard] Starting on port {PORT}")
-    server = HTTPServer(("0.0.0.0", PORT), DashboardHandler)
-    server.serve_forever()
+    from dashboard_server import DashboardHandler
+    for attempt in range(5):
+        try:
+            print(f"[Dashboard] Starting on port {PORT}")
+            server = HTTPServer(("0.0.0.0", PORT), DashboardHandler)
+            server.serve_forever()
+            break
+        except OSError as e:
+            if "Address already in use" in str(e) and attempt < 4:
+                print(f"[Dashboard] Port {PORT} busy — waiting 10s before retry {attempt+1}/5...")
+                time.sleep(10)
+            else:
+                print(f"[Dashboard] Could not start — {e}")
+                break
 
 
 def run_scheduler():
-    import time
     import datetime
     import traceback
 
@@ -47,9 +58,12 @@ def run_scheduler():
 
 
 if __name__ == "__main__":
-    # Dashboard runs in background thread
+    # Wait on startup to let old process release port
+    time.sleep(5)
+
+    # Dashboard in background thread
     dashboard_thread = threading.Thread(target=run_dashboard, daemon=True)
     dashboard_thread.start()
 
-    # Scheduler runs in main thread
+    # Scheduler in main thread
     run_scheduler()
