@@ -20,7 +20,7 @@ def run_scheduler():
     import datetime
     import traceback
 
-    RUN_TIME = os.getenv("RUN_TIME_UTC", "16:00")
+    RUN_TIME = os.getenv("RUN_TIME_UTC", "03:30")
     print(f"[Scheduler] Daily run time: {RUN_TIME} UTC")
 
     while True:
